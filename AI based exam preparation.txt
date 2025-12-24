@@ -1,0 +1,15 @@
+AI-based exam preparation platform
+
+High-level architecture
+
+Frontend (Web Application)
+
+	Exam Select Interface	Resource Library	Q&A Chat Interface  
+
+Backend API Server
+
+	Resource Manager	AI Service Router	Document Processor
+	
+		Vector DB (Embeddings)		File Storage (Resources)	AI APIs (Gemini/ Mistral)
+		
+		
