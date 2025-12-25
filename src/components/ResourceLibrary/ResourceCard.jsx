@@ -2,11 +2,14 @@ import React from 'react';
 import { Download, Star } from 'lucide-react';
 import { getColorClasses } from './utils';
 
-const ResourceCard = ({ resource }) => {
+const ResourceCard = ({ resource, onClick }) => {
   const IconComponent = resource.icon;
 
   return (
-    <div className="bg-dark-card border border-dark-border rounded-xl p-6 hover:border-purple-500/30 transition-all cursor-pointer group">
+    <div 
+      onClick={onClick}
+      className="bg-dark-card border border-dark-border rounded-xl p-6 hover:border-purple-500/30 transition-all cursor-pointer group"
+    >
       <div className="flex items-start justify-between mb-4">
         <div className={`p-3 rounded-lg ${getColorClasses(resource.color)}`}>
           <IconComponent size={24} />

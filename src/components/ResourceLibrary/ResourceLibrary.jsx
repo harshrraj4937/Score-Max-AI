@@ -3,11 +3,13 @@ import { ArrowLeft } from 'lucide-react';
 import SearchBar from './SearchBar';
 import FilterTabs from './FilterTabs';
 import ResourceGrid from './ResourceGrid';
+import ResourceDetailView from './ResourceDetailView';
 import { resources, filters } from './resourceData';
 
 const ResourceLibrary = ({ onBack }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedResource, setSelectedResource] = useState(null);
 
   const filteredResources = resources.filter(resource => {
     const matchesFilter = activeFilter === 'all' || resource.type === activeFilter;
@@ -17,6 +19,20 @@ const ResourceLibrary = ({ onBack }) => {
     return matchesFilter && matchesSearch;
   });
 
+  const handleResourceClick = (resource) => {
+    setSelectedResource(resource);
+  };
+
+  const handleBackToLibrary = () => {
+    setSelectedResource(null);
+  };
+
+  // If a resource is selected, show detail view
+  if (selectedResource) {
+    return <ResourceDetailView resource={selectedResource} onBack={handleBackToLibrary} />;
+  }
+
+  // Otherwise, show the library grid view
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -48,7 +64,10 @@ const ResourceLibrary = ({ onBack }) => {
       </div>
 
       {/* Resources Grid */}
-      <ResourceGrid resources={filteredResources} />
+      <ResourceGrid 
+        resources={filteredResources} 
+        onResourceClick={handleResourceClick}
+      />
     </div>
   );
 };
