@@ -35,9 +35,6 @@ services:
       - "3000:80"
     environment:
       - NODE_ENV=production
-    volumes:
-      # Mount nginx config (for easy updates without rebuild)
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
     networks:
       - app-network
