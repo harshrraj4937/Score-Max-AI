@@ -1,22 +1,58 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import ChatMessages from './ChatMessages';
 import QuickActions from './QuickActions';
 import ChatInput from './ChatInput';
+import PDFUploadCard from './PDFUploadCard';
+import PDFInfoBadge from './PDFInfoBadge';
 import { initialMessages, quickActions, systemPrompt } from './chatData';
 import { sendMessageStream, formatMessagesForMistral } from '../../services/mistralService';
+import { uploadPDF, chatWithPDFStream } from '../../services/ragService';
 
 const QAChatInterface = ({ onBack }) => {
   const [messages, setMessages] = useState(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [uploadedPDF, setUploadedPDF] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handlePDFUpload = async (file) => {
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const result = await uploadPDF(file);
+      setUploadedPDF(result);
+      
+      // Reset messages when new PDF is uploaded
+      setMessages([
+        {
+          id: 1,
+          type: 'bot',
+          text: `Great! I've processed "${result.filename}" (${result.page_count} pages). You can now ask me questions about it!`,
+          timestamp: new Date().toISOString(),
+        }
+      ]);
+    } catch (err) {
+      console.error('PDF Upload Error:', err);
+      setError(`Failed to upload PDF: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemovePDF = () => {
+    setUploadedPDF(null);
+    setMessages(initialMessages);
+    setError(null);
+  };
 
   const handleSendMessage = async () => {
     if (inputValue.trim() && !isLoading) {
@@ -44,32 +80,59 @@ const QAChatInterface = ({ onBack }) => {
       setMessages(prev => [...prev, loadingMessage]);
 
       try {
-        // Format messages for Mistral AI (exclude the initial greeting)
-        const conversationHistory = messages
-          .filter(msg => msg.id !== 1) // Exclude initial greeting
-          .concat([userMessage]);
-        
-        const formattedMessages = [
-          { role: 'system', content: systemPrompt },
-          ...formatMessagesForMistral(conversationHistory)
-        ];
+        // If PDF is uploaded, use RAG service
+        if (uploadedPDF) {
+          const conversationHistory = messages
+            .filter(msg => msg.id !== 1)
+            .map(msg => ({
+              role: msg.type === 'user' ? 'user' : 'assistant',
+              content: msg.text
+            }));
 
-        let fullResponse = '';
+          let fullResponse = '';
 
-        // Use streaming for real-time response
-        await sendMessageStream(
-          formattedMessages,
-          (chunk, accumulated) => {
-            fullResponse = accumulated;
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === loadingMessageId 
-                  ? { ...msg, text: accumulated, isLoading: false }
-                  : msg
-              )
-            );
-          }
-        );
+          await chatWithPDFStream(
+            inputValue,
+            uploadedPDF.resource_id,
+            conversationHistory,
+            (chunk, accumulated) => {
+              fullResponse = accumulated;
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === loadingMessageId 
+                    ? { ...msg, text: accumulated, isLoading: false }
+                    : msg
+                )
+              );
+            }
+          );
+        } else {
+          // Use regular Mistral AI chat if no PDF
+          const conversationHistory = messages
+            .filter(msg => msg.id !== 1)
+            .concat([userMessage]);
+          
+          const formattedMessages = [
+            { role: 'system', content: systemPrompt },
+            ...formatMessagesForMistral(conversationHistory)
+          ];
+
+          let fullResponse = '';
+
+          await sendMessageStream(
+            formattedMessages,
+            (chunk, accumulated) => {
+              fullResponse = accumulated;
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === loadingMessageId 
+                    ? { ...msg, text: accumulated, isLoading: false }
+                    : msg
+                )
+              );
+            }
+          );
+        }
 
       } catch (err) {
         console.error('Error sending message:', err);
@@ -114,13 +177,45 @@ const QAChatInterface = ({ onBack }) => {
           <ArrowLeft size={24} className="text-dark-text" />
         </button>
         <div className="flex-1">
-          <h2 className="text-3xl font-bold text-dark-text">Q&A Chat Assistant</h2>
-          <p className="text-dark-textSecondary flex items-center">
+          <div className="flex items-center space-x-3">
+            <h2 className="text-3xl font-bold text-dark-text">Q&A Chat Assistant</h2>
+            {uploadedPDF && <PDFInfoBadge pdfInfo={uploadedPDF} />}
+          </div>
+          <p className="text-dark-textSecondary flex items-center mt-1">
             <Sparkles size={14} className="mr-1 text-green-400" />
-            {isLoading ? 'Thinking...' : 'AI-powered by Mistral AI'}
+            {isLoading ? 'Thinking...' : uploadedPDF ? 'Answering from your PDF' : 'AI-powered by Mistral AI'}
           </p>
         </div>
       </div>
+
+      {/* PDF Upload Card */}
+      {!uploadedPDF && !isUploading && (
+        <PDFUploadCard 
+          onUploadComplete={handlePDFUpload}
+          onRemove={handleRemovePDF}
+          currentPDF={uploadedPDF}
+        />
+      )}
+
+      {/* Uploading State */}
+      {isUploading && (
+        <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center space-x-3">
+          <Loader2 size={20} className="text-blue-400 animate-spin" />
+          <div>
+            <p className="text-blue-400 font-medium">Processing PDF...</p>
+            <p className="text-blue-300 text-xs">Extracting text and creating embeddings</p>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Info (if uploaded) */}
+      {uploadedPDF && !isUploading && (
+        <PDFUploadCard 
+          onUploadComplete={handlePDFUpload}
+          onRemove={handleRemovePDF}
+          currentPDF={uploadedPDF}
+        />
+      )}
 
       {/* Error Banner */}
       {error && (

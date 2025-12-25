@@ -9,15 +9,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including devDependencies for build)
-RUN npm ci && npm cache clean --force
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy all source files
 COPY . .
 
-# Build argument for API key (can be overridden at build time)
+# Build arguments for API key and backend URL (can be overridden at build time)
 ARG VITE_MISTRAL_API_KEY
+ARG VITE_API_URL=http://backend:5000
 ENV VITE_MISTRAL_API_KEY=$VITE_MISTRAL_API_KEY
+ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application
 RUN npm run build
@@ -25,7 +27,7 @@ RUN npm run build
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
 
-# Copy custom nginx configuration
+# Copy custom nginx configuration from nginx folder
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application from builder stage

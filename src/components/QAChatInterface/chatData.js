@@ -25,7 +25,7 @@ export const initialMessages = [
   {
     id: 1,
     type: 'bot',
-    text: "Hello! I'm your AI study assistant powered by Mistral AI. I'm here to help you with any questions about your exam preparation. Feel free to ask me anything!",
+    text: "Hello! I'm your AI study assistant powered by Mistral AI. Upload a PDF study material to get started, or ask me any general exam preparation questions!",
     timestamp: new Date().toISOString(),
   }
 ];
