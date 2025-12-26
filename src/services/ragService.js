@@ -1,5 +1,6 @@
 // RAG Service for PDF-based Q&A
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use empty string for production (relative paths), fallback for local development
+const API_URL = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 /**
  * Upload a PDF file to the backend
